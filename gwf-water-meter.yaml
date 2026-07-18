@@ -1,0 +1,148 @@
+# esphome run gwf-water-meter.yaml
+# Compile OK! Il manque la clé AES.
+# Version 2026-07-18
+# update esphome en cli local: pip install -U esphome
+# NE PAS UTILISER GPIO5 -> utilisé au boot
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  on_boot:
+    priority: 600  # Exécuté très tôt dans le processus de boot
+    then:
+      - light.turn_off: status_led
+
+substitutions:
+  name: gwf-water-meter
+  friendly_name: GWF water meter
+  
+esp32:
+  board: esp32-c5-devkitc-1
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_XTAL_FREQ_48: 'y'
+
+# Active le log pour debug
+logger:
+  baud_rate: 115200
+  hardware_uart: UART0
+
+# Home Assistant API
+api:
+  encryption:
+    key: !secret ha_api_key
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid24
+  password: !secret wifi_password24
+  #power_save_mode: none  # désactive l'économie d'énergie wifi (source fréquente de déco)
+  ap:
+    ssid: ${name} AP
+    password: !secret wifi_password24
+    
+# Webserver
+web_server:
+  port: 80
+  version: 3
+  auth:
+    username: !secret web_server_username
+    password: !secret web_server_password
+
+captive_portal:
+
+time:
+  - platform: sntp
+    id: time_sntp
+
+# composant externe pour wmbus
+external_components:
+  - source: github://SzczepanLeon/esphome-components@main
+    components: [wmbus_radio, wmbus_meter, wmbus_common]
+
+spi:
+  clk_pin: GPIO7 # = SCLK
+  mosi_pin: GPIO9
+  miso_pin: GPIO8
+
+#GD02 sur GPIO4, mais pas utilisé?
+
+wmbus_radio:
+  radio_type: CC1101
+  cs_pin: GPIO6  # = CSN
+  irq_pin: GPIO3          # = GDO0
+  frequency: 868.95MHz
+  on_frame:
+    - then:
+        - logger.log:
+            format: "RSSI: %ddBm T: %s (%d) %s"
+            args: [ "frame->rssi()", "frame->as_hex().c_str()", "frame->data().size()", "toString(frame->link_mode())" ]
+
+wmbus_meter:
+  - id: water_meter
+    meter_id: 0x01935B7D    # = 26411837 décimal
+    type: gwfwater
+    mode: C1                  # le compteur émet en C1
+    # key: "________________________________"  # clé AES-128 (32 hex) si chiffré
+
+sensor:
+  - platform: wmbus_meter
+    parent_id: water_meter
+    field: total_m3
+    name: "Consommation eau"
+    unit_of_measurement: "m³"
+    accuracy_decimals: 3
+    device_class: water
+    state_class: total_increasing
+    icon: "mdi:water"
+
+  - platform: wmbus_meter
+    parent_id: water_meter
+    field: rssi
+    name: "Eau RSSI"
+    unit_of_measurement: "dBm"
+    accuracy_decimals: 0
+    device_class: signal_strength
+    state_class: measurement
+    entity_category: diagnostic
+
+# Définition de la LED RVB (GPIO 27)
+light:
+  - platform: esp32_rmt_led_strip
+    id: status_led
+    name: "LED Statut"
+    pin: GPIO27
+    num_leds: 1
+    rgb_order: GRB
+    chipset: WS2812
+    restore_mode: ALWAYS_OFF
+
+binary_sensor:
+  - platform: status
+    name: "${friendly_name} Status"
+    entity_category: diagnostic
+
+text_sensor:
+  - platform: version
+    hide_timestamp: true
+    name: "${friendly_name} ESPHome Version"
+    entity_category: diagnostic
+  - platform: wifi_info
+    ip_address:
+      name: "${friendly_name} IP Address"
+      icon: mdi:wifi
+      entity_category: diagnostic
+    ssid:
+      name: "${friendly_name} Connected SSID"
+      icon: mdi:wifi-strength-2
+      entity_category: diagnostic
+
+# Define buttons for HA
+button:
+  - platform: restart
+    name: "${friendly_name} Restart"
+    entity_category: config
+
+
