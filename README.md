@@ -53,6 +53,8 @@ All three run on an **ESP32-C5-DevKitC-1** board and expose a local web server (
 
 ## 2. GWF Water Meter Reader
 
+Credits: https://github.com/SzczepanLeon/esphome-components
+
 **Hardware:**
 - ESP32-C5-DevKitC-1
 - CC1101 radio module (SPI) for wM-Bus reception at 868.95 MHz
@@ -113,9 +115,48 @@ All three run on an **ESP32-C5-DevKitC-1** board and expose a local web server (
    esphome run garage-controller.yaml
    ```
 
-## Wiring reference
+## 4. Tag-Reader and screen
 
-Pin assignments are documented as comments inside each YAML file (I2C, SPI, GPIO). Double-check the ESP32-C5 pinout above before wiring, and avoid `GPIO5` on all boards in this repo, as it's used during boot.
+Credits: https://github.com/adonno/tagreader
+
+## 5. ESP-Somfy with ESP32-S3-N16R8 and CC1101 Module
+
+Credits: https://github.com/rstrouse/ESPSomfy-RTS
+
+### Wiring CC1101 ↔ ESP32-S3-N16R8 (ESPSomfy-RTS)
+
+## Board pinout
+
+![ESP32-S3-N16R8 pinout](https://github.com/olaoups/esp-home-projects/blob/main/esp32-s3-n16r8-development-board-pinout.png?raw=true)
+
+## Recommended wiring (native ESP32-S3 hardware FSPI)
+
+| Pin | CC1101 | Function     | ESP32-S3 GPIO |
+|-----|--------|--------------|---------------|
+| 1   | GND    | GND          | GND           |
+| 2   | VCC    | 3.3V         | 3V3           |
+| 3   | GDO0   | TX           | GPIO14        |
+| 4   | CSN    | Chip Select  | GPIO10        |
+| 5   | SCK    | SPI Clock    | GPIO12        |
+| 6   | MOSI   | SPI          | GPIO11        |
+| 7   | MISO   | SPI          | GPIO13        |
+| 8   | GDO2   | RX           | GPIO21        |
+
+## CC1101 Module
+
+Reference used: **E07-M1101D-SMA** (433/868 MHz transceiver, blue module with duck/spring antenna), recommended by the official ESPSomfy-RTS wiki for its reception reliability.
+
+- Manufacturer datasheet (Ebyte): https://www.ebyte.com/en/product-view-news.html?id=132
+- ESPSomfy-RTS wiki (wiring reference): https://github.com/rstrouse/ESPSomfy-RTS/wiki/Simple-ESPSomfy-RTS-device
+
+## Notes
+
+- Dedicated hardware SPI bus (GPIO10-13) → better reliability, less interference than software SPI.
+- GPIO14 and GPIO21 are free, outside the PSRAM range (35/36/37 reserved on the N16R8) and outside the strapping pins (0/3/45/46).
+- GDO0 and GDO2 can be shared on a single GPIO in the ESPSomfy-RTS software configuration if you need to save a pin.
+- If the CC1101 module has 10 pins (2× VCC, 2× GND), either pair of each can be used interchangeably.
+
+
 
 ## Disclaimer
 
