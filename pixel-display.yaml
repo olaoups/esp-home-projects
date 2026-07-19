@@ -1,0 +1,120 @@
+esphome:
+  name: pixel_display
+  friendly_name: Pixel Display
+
+esp8266:
+  board: d1_mini
+
+logger:
+
+api:
+  encryption:
+    key: "CHANGE_MOI"
+
+ota:
+
+wifi:
+  ssid: "TON_WIFI"
+  password: "TON_MDP"
+
+  ap:
+    ssid: "PixelDisplay Fallback"
+    password: "12345678"
+
+captive_portal:
+
+light:
+  - platform: neopixelbus
+    id: matrix_light
+    type: GRB
+    variant: WS2812
+    pin: D4
+    num_leds: 256
+    name: "Matrice LED"
+    restore_mode: ALWAYS_ON
+
+font:
+  - file: "fonts/DejaVuSansMono.ttf"
+    id: font_small
+    size: 8
+
+  - file: "fonts/DejaVuSansMono.ttf"
+    id: font_medium
+    size: 12
+
+  - file: "fonts/DejaVuSansMono.ttf"
+    id: font_large
+    size: 16
+
+globals:
+  - id: scroll_speed
+    type: float
+    restore_value: yes
+    initial_value: "30"
+
+  - id: timeout_sec
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
+text:
+  - platform: template
+    name: "Texte affiché"
+    id: display_text
+    optimistic: true
+
+number:
+  - platform: template
+    name: "Vitesse défilement"
+    min_value: 5
+    max_value: 100
+    step: 1
+    initial_value: 30
+    set_action:
+      then:
+        - lambda: |-
+            id(scroll_speed) = x;
+
+  - platform: template
+    name: "Durée affichage (sec)"
+    min_value: 0
+    max_value: 600
+    step: 1
+    initial_value: 0
+    set_action:
+      then:
+        - lambda: |-
+            id(timeout_sec) = x;
+
+select:
+  - platform: template
+    name: "Police"
+    id: font_select
+    optimistic: true
+    options:
+      - Petit
+      - Moyen
+      - Grand
+    initial_option: Moyen
+
+display:
+  - platform: addressable_light
+    id: matrix_display
+    addressable_light_id: matrix_light
+    width: 32
+    height: 8
+    update_interval: 30ms
+    lambda: |-
+      static int x = 32;
+      auto text = id(display_text).state.c_str();
+
+      const font::Font *f;
+      if (id(font_select).state == "Petit") f = id(font_small);
+      else if (id(font_select).state == "Grand") f = id(font_large);
+      else f = id(font_medium);
+
+      it.printf(x, 0, f, Color(255,255,255), "%s", text);
+
+      x--;
+      if (x < -strlen(text) * 8) x = 32;
+      delay(id(scroll_speed));

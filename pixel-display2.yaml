@@ -1,0 +1,133 @@
+esphome:
+  name: pixel-display
+  friendly_name: Pixel Display
+
+esp8266:
+  board: d1_mini
+
+logger:
+
+api:
+  encryption:
+    key: !secret ha_api_key
+
+ota:
+
+wifi:
+  ssid: !secret wifi_ssid24
+  password: !secret wifi_password24
+
+  ap:
+    ssid: "PixelDisplay Fallback"
+    password: !secret ap_password
+
+captive_portal:
+
+light:
+  - platform: neopixelbus
+    id: matrix_light
+    type: GRB
+    variant: WS2812
+    pin: D4
+    num_leds: 256
+    name: "Matrice LED"
+    restore_mode: ALWAYS_ON
+
+globals:
+  - id: scroll_speed
+    type: int
+    restore_value: yes
+    initial_value: "30"
+
+  - id: timeout_sec
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
+text:
+  - platform: template
+    name: "Texte affiché"
+    id: display_text
+    mode: text
+    optimistic: true
+
+number:
+  - platform: template
+    name: "Vitesse défilement"
+    min_value: 5
+    max_value: 100
+    step: 1
+    initial_value: 30
+    set_action:
+      then:
+        - lambda: |-
+            id(scroll_speed) = x;
+
+  - platform: template
+    name: "Durée affichage (sec)"
+    min_value: 0
+    max_value: 600
+    step: 1
+    initial_value: 0
+    set_action:
+      then:
+        - lambda: |-
+            id(timeout_sec) = x;
+
+font:
+  - id: tinyfont
+    file: "fonts/Roboto-Regular-8pt.bdf"
+    size: 8
+    glyphs: '''!"%()+=,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+
+display:
+  - platform: addressable_light
+    id: matrix_display
+    addressable_light_id: matrix_light
+    width: 32
+    height: 8
+    update_interval: 100ms
+    pixel_mapper: |-
+      if (y % 2 == 0) {
+        return y * 32 + x;
+      } else {
+        return y * 32 + (31 - x);
+      }
+    lambda: |-
+      auto hsv_color = [](float h, float s, float v) -> Color {
+        float r, g, b;
+
+        int i = int(h * 6);
+        float f = h * 6 - i;
+        float p = v * (1 - s);
+        float q = v * (1 - f * s);
+        float t = v * (1 - (1 - f) * s);
+
+        switch (i % 6) {
+          case 0: r = v; g = t; b = p; break;
+          case 1: r = q; g = v; b = p; break;
+          case 2: r = p; g = v; b = t; break;
+          case 3: r = p; g = q; b = v; break;
+          case 4: r = t; g = p; b = v; break;
+          default:r = v; g = p; b = q; break;
+        }
+
+        return Color(uint8_t(r * 255), uint8_t(g * 255), uint8_t(b * 255));
+      };
+
+      static int scroll_x = 32;
+      static uint32_t last_update = 0;
+      static uint8_t hue = 0;
+      static float plasma_t = 0;
+
+      auto now = millis();
+      if (now - last_update < id(scroll_speed)) return;
+      last_update = now;
+
+      auto text = id(display_text).state.c_str();
+
+      it.clear();
+
+      it.printf(scroll_x, 0, id(tinyfont), Color(255,255,255), "%s", text);
+      scroll_x--;
+      if (scroll_x < -((int)strlen(text) * 6)) scroll_x = 32;                              

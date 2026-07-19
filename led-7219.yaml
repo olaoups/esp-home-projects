@@ -1,0 +1,91 @@
+# esphome run led-7219.yaml
+# fonctionne correctement
+esphome:
+  name: led-matrix
+  friendly_name: LED Matrix
+  on_boot:
+    priority: 600  # Exécuté très tôt dans le processus de boot
+    then:
+      - light.turn_off: status_led
+
+esp32:
+  board: esp32-c5-devkitc-1
+  framework:
+    type: esp-idf
+
+# Active le log pour debug
+logger:
+  baud_rate: 115200
+  hardware_uart: UART0
+
+# Home Assistant API
+api:
+  encryption:
+    key: !secret ha_api_key
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid24
+  password: !secret wifi_password24
+  #power_save_mode: none  # désactive l'économie d'énergie wifi (source fréquente de déco)
+  ap:
+    ssid: "LED Matrix AP"
+    password: !secret wifi_password24
+
+captive_portal:                                
+
+spi:
+  clk_pin: GPIO28
+  mosi_pin: GPIO23
+
+# Définition de la LED RVB (GPIO 27)
+light:
+  - platform: esp32_rmt_led_strip
+    id: status_led
+    name: "LED Statut"
+    pin: GPIO27
+    num_leds: 1
+    rgb_order: GRB
+    chipset: WS2812
+    restore_mode: ALWAYS_OFF
+
+# Variables pour texte
+text:
+  - platform: template
+    name: "Texte affiché"
+    id: display_text
+    mode: text
+    optimistic: true
+    initial_value: "Hello"
+
+# Display MAX7219
+display:
+  - platform: max7219digit
+    id: led_matrix_display
+    cs_pin: GPIO5
+    num_chips: 4
+    intensity: 0
+    rotate_chip: 0
+    scroll_enable: true
+    scroll_speed: 80ms
+    scroll_delay: 1s
+    scroll_dwell: 1s
+    lambda: |-
+      auto my_text = id(display_text).state;
+      // Ajustez le chiffre '5' selon le nombre de caractères qui tiennent sur vos 4 modules
+      // -2 = décalage de 2 pixels vers le haut pour font Minecraftia-Regular.ttf
+      if (my_text.length() > 5) {
+        it.printf(0, -2, id(font1), "%s...", my_text.c_str());
+      } else {
+        it.print(0, -2, id(font1), my_text.c_str());
+      }
+
+font:
+  - file: "fonts/Minecraftia-Regular.ttf"
+    id: font1
+    size: 8
+    glyphs: 
+      - " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+      - "éàèêëîïôûùçÀÉÈÂÊËÎÏÔÛÙÇäöüÄÖÜ"

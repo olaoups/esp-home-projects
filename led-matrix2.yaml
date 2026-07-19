@@ -1,0 +1,127 @@
+# LED Matrix
+# source: https://www.splitbrain.org/blog/2022-10/09-led_matrix_with_esphome_and_homeassistant
+# compile: esphome run led-matrix.yaml
+
+substitutions:
+  devicename: led-matrix
+  xscrollpadding: "4" # in pix
+
+esphome:
+  name: $devicename
+  friendly_name: LED Matrix
+  
+esp8266:
+  board: d1_mini
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret ha_api_key
+
+#web_server:
+#  port: 80
+
+ota:
+
+wifi:
+  ssid: !secret wifi_ssid24
+  password: !secret wifi_password24
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "${devicename} Fallback Hotspot"
+    password: !secret ap_password
+
+captive_portal:
+
+########## Setup #######################
+
+
+script:
+  - id: start
+    mode: restart
+    then:
+      - delay: 60s
+      - script.execute: stop
+  - id: stop
+    then:
+      - script.stop: start
+      - homeassistant.service:
+          service: input_text.set_value
+          data:
+            value: ""
+            entity_id: input_text.led_matrix_text
+
+text_sensor:
+  - platform: homeassistant
+    name: "Matrix Text"
+    entity_id: input_text.led_matrix_text
+    id: led_matrix_text
+    internal: true
+    on_value:
+      - if:
+          condition:
+            text_sensor.state:
+              id: led_matrix_text
+              state: ""
+          else:
+            - script.execute: start
+
+font:
+  - id: tinyfont
+    file: "fonts/Roboto-Regular-8pt.bdf"
+    size: 8
+    glyphs: '''!"%()+,-_.:*=°?#0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz'
+
+
+light:
+  - platform: neopixelbus
+    id: led_matrix_light
+    type: GRB
+    variant: WS2812
+    pin: D4
+    num_leds: 256
+    name: "led_matrix"
+    default_transition_length: 0s
+    color_correct: [50%, 50%, 50%]
+    internal: true
+    restore_mode: ALWAYS_ON
+
+display:
+  - platform: addressable_light
+    id: led_matrix_display
+    addressable_light_id: led_matrix_light
+    width: 32
+    height: 8
+    update_interval: 350ms
+    pixel_mapper: |-
+      if (x % 2 == 0) {
+        return (x * 8) + y;
+      }
+      return (x * 8) + (7 - y);
+
+    lambda: |-
+      static int16_t xpos = it.get_width();
+      static int text_width = 0;
+      static bool need_calc = true;
+
+      const char * text = id(led_matrix_text).state.c_str();
+
+      if (need_calc) {
+        int xs, ys, h;
+        it.get_text_bounds(0, 0, text, id(tinyfont),
+                            TextAlign::TOP_LEFT,
+                            &xs, &ys, &text_width, &h);
+        xpos = it.get_width();
+        need_calc = false;
+      }
+
+      if (xpos < -text_width - 4) {
+        xpos = it.get_width();
+      }
+
+      it.print(xpos, 0, id(tinyfont), Color(0,0,255), text);
+      xpos--;
