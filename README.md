@@ -125,11 +125,11 @@ Credits: https://github.com/rstrouse/ESPSomfy-RTS
 
 ### Wiring CC1101 ↔ ESP32-S3-N16R8 (ESPSomfy-RTS)
 
-## Board pinout
+#### Board pinout
 
 ![ESP32-S3-N16R8 pinout](https://github.com/olaoups/esp-home-projects/blob/main/esp32-s3-n16r8-development-board-pinout.png?raw=true)
 
-## Recommended wiring (native ESP32-S3 hardware FSPI)
+#### Recommended wiring (native ESP32-S3 hardware FSPI)
 
 | Pin | CC1101 | Function     | ESP32-S3 GPIO |
 |-----|--------|--------------|---------------|
@@ -142,14 +142,28 @@ Credits: https://github.com/rstrouse/ESPSomfy-RTS
 | 7   | MISO   | SPI          | GPIO13        |
 | 8   | GDO2   | RX           | GPIO21        |
 
-## CC1101 Module
+#### CC1101 Module
 
 Reference used: **E07-M1101D-SMA** (433/868 MHz transceiver, blue module with duck/spring antenna), recommended by the official ESPSomfy-RTS wiki for its reception reliability.
 
 - Manufacturer datasheet (Ebyte): https://www.ebyte.com/en/product-view-news.html?id=132
 - ESPSomfy-RTS wiki (wiring reference): https://github.com/rstrouse/ESPSomfy-RTS/wiki/Simple-ESPSomfy-RTS-device
 
-## Notes
+
+#### Flashing Procedure — ESPSomfy-RTS on ESP32-S3-N16R8
+
+1. Download `SomfyController.onboard.esp32s3.bin.zip` from the [ESPSomfy-RTS Releases](https://github.com/rstrouse/ESPSomfy-RTS/releases) page and unzip it.
+2. Open **Chrome or Edge** and go to https://web.esphome.io (Web Serial requires a Chromium-based browser).
+3. Hold the **BOOT** button on the ESP32-S3, plug in the USB data cable, then release BOOT after 1-2 seconds (puts the board into flash mode via its native USB port, VID 303A).
+4. Click **Connect** in the browser and select the ESP32-S3's COM port.
+5. Click **Install** (skip "Prepare for first use").
+6. Choose the unzipped `.bin` file and click **INSTALL**. Wait for the flash to complete (~1-2 min).
+7. Unplug/replug the ESP32 (normal reboot, no BOOT button this time).
+8. Connect to the device's WiFi access point (`ESPSomfy-RTS-XXXX`) to configure your home network.
+9. Go to http://192.168.4.1
+10. In the ESPSomfy-RTS web UI, go to **Settings → Radio** and enter the CC1101 pin mapping (GPIO10/11/12/13/14/21) — radio is disabled by default until configured.
+
+#### Notes
 
 - Dedicated hardware SPI bus (GPIO10-13) → better reliability, less interference than software SPI.
 - GPIO14 and GPIO21 are free, outside the PSRAM range (35/36/37 reserved on the N16R8) and outside the strapping pins (0/3/45/46).
