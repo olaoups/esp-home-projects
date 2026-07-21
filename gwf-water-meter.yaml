@@ -1,6 +1,6 @@
 # esphome run gwf-water-meter.yaml
-# Compile OK! Il manque la clé AES.
-# Version 2026-07-18
+# Compile OK!
+# Version 2026-07-21
 # update esphome en cli local: pip install -U esphome
 # NE PAS UTILISER GPIO5 -> utilisé au boot
 esphome:
@@ -13,7 +13,7 @@ esphome:
 
 substitutions:
   name: gwf-water-meter
-  friendly_name: GWF water meter
+  friendly_name: GWF Water Meter
   
 esp32:
   board: esp32-c5-devkitc-1
@@ -38,7 +38,6 @@ ota:
 wifi:
   ssid: !secret wifi_ssid24
   password: !secret wifi_password24
-  #power_save_mode: none  # désactive l'économie d'énergie wifi (source fréquente de déco)
   ap:
     ssid: ${name} AP
     password: !secret wifi_password24
@@ -57,7 +56,6 @@ time:
   - platform: sntp
     id: time_sntp
 
-# composant externe pour wmbus
 external_components:
   - source: github://SzczepanLeon/esphome-components@main
     components: [wmbus_radio, wmbus_meter, wmbus_common]
@@ -67,12 +65,12 @@ spi:
   mosi_pin: GPIO9
   miso_pin: GPIO8
 
-#GD02 sur GPIO4, mais pas utilisé?
+#GD02 sur GPIO4, but not used.
 
 wmbus_radio:
   radio_type: CC1101
-  cs_pin: GPIO6  # = CSN
-  irq_pin: GPIO3          # = GDO0
+  cs_pin: GPIO6 # = CSN
+  irq_pin: GPIO3 # = GDO0
   frequency: 868.95MHz
   on_frame:
     - then:
@@ -82,10 +80,14 @@ wmbus_radio:
 
 wmbus_meter:
   - id: water_meter
-    meter_id: 0x01935B7D    # = 26411837 décimal
+    meter_id: !secret gwf_water_meter_id
     type: gwfwater
-    mode: C1                  # le compteur émet en C1
-    # key: "________________________________"  # clé AES-128 (32 hex) si chiffré
+    mode: C1
+    key: !secret gwf_water_meter_aes_key
+    #on_telegram:
+    #  - logger.log:
+    #      format: "GWF JSON: %s"
+    #      args: ["meter.as_json().c_str()"]
 
 sensor:
   - platform: wmbus_meter
@@ -100,7 +102,7 @@ sensor:
 
   - platform: wmbus_meter
     parent_id: water_meter
-    field: rssi
+    field: rssi_dbm
     name: "Eau RSSI"
     unit_of_measurement: "dBm"
     accuracy_decimals: 0
